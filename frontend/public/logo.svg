@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 230" width="200" height="230">
+  <!-- Left leaf -->
+  <path d="M100,148 C97,132 78,114 76,84 C74,57 86,38 100,38 Z" fill="#1A5C28"/>
+  <!-- Right leaf -->
+  <path d="M100,148 C103,132 122,114 124,84 C126,57 114,38 100,38 Z" fill="#1A5C28"/>
+  <!-- Center stem hint -->
+  <ellipse cx="100" cy="148" rx="3" ry="5" fill="#1A5C28"/>
+  <!-- Kopernik text -->
+  <text x="100" y="178" text-anchor="middle"
+        font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
+        font-size="23" font-weight="900" fill="#1A5C28" letter-spacing="0.3">Kopernik</text>
+  <!-- Harvest text -->
+  <text x="100" y="204" text-anchor="middle"
+        font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
+        font-size="23" font-weight="900" fill="#1A5C28" letter-spacing="0.3">Harvest</text>
+</svg>

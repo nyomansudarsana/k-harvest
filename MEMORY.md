@@ -1,0 +1,2 @@
+- [Project: Kopernik Harvest](memories/project_kopernik_harvest.md) — Full-stack Inventory/Quotation system built at d:\K-HARVEST
+- [User Profile](memories/user_profile.md) — User context and preferences
