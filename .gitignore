@@ -46,3 +46,14 @@ uvicorn.log
 
 # Docker
 *.pid
+
+# Binary data files — rejected by HF Spaces push hook
+*.png
+*.jpg
+*.jpeg
+*.xlsx
+*.xls
+
+# Claude Code memory system — not app code
+MEMORY.md
+memories/
