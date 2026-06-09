@@ -1,0 +1,34 @@
+# Render Blueprint — deploys Kopernik Harvest backend
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: kh-backend
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+
+    # Health check — Render uses this to confirm the service is up
+    healthCheckPath: /health
+
+    envVars:
+      # Render injects PORT automatically — Dockerfile uses ${PORT:-8000}
+      - key: SECRET_KEY
+        generateValue: true          # Render generates a cryptographically secure value
+
+      - key: ALGORITHM
+        value: HS256
+
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 480
+
+      - key: DATABASE_URL
+        value: sqlite:///./kopernik_harvest.db
+
+      - key: DEBUG
+        value: false
+
+      # Replace the Vercel URL below after your frontend is deployed
+      - key: CORS_ORIGINS
+        value: https://kopernik-harvest.vercel.app,http://localhost:3000

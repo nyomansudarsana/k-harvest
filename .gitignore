@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env.local
+.env.production.local
+
+# Environment files — never commit real secrets
+backend/.env
+frontend/.env.local
+frontend/.env.production
+
+# SQLite database — contains runtime data
+backend/kopernik_harvest.db
+backend/data/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+uvicorn.log
+
+# Docker
+*.pid
