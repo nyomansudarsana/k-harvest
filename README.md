@@ -1,3 +1,13 @@
+---
+title: Kopernik Harvest
+emoji: 🌾
+colorFrom: green
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Kopernik Harvest
 
 **Agricultural Commodity Management System**
