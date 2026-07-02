@@ -12,6 +12,7 @@ import Inventory from './pages/Inventory'
 import StockOpname from './pages/StockOpname'
 import Quotation from './pages/Quotation'
 import Invoice from './pages/Invoice'
+import QCFailed from './pages/QCFailed'
 import UserManagement from './pages/UserManagement'
 import Settings from './pages/Settings'
 
@@ -32,6 +33,7 @@ function AppRoutes() {
         <Route path="suppliers" element={<Suppliers />} />
         <Route path="receiving" element={<Receiving />} />
         <Route path="qc" element={<QC />} />
+        <Route path="qc-failed" element={<QCFailed />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="stock-opname" element={<StockOpname />} />
         <Route path="quotation" element={<Quotation />} />

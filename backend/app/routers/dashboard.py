@@ -90,6 +90,9 @@ def top_suppliers(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 @router.get("/alerts", response_model=dict)
 def get_alerts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from datetime import date as date_type
+    today = datetime.utcnow().date()
+
     # Low stock: available_qty < 100
     low_stock = db.query(Inventory).filter(
         Inventory.deleted_at.is_(None),
@@ -97,22 +100,42 @@ def get_alerts(db: Session = Depends(get_db), current_user: User = Depends(get_c
         Inventory.available_qty > 0,
     ).all()
 
-    # Expiring within 30 days
-    future = datetime.utcnow() + timedelta(days=30)
+    # Expiring within 30 days — with severity levels (Enh 4)
+    future_30 = today + timedelta(days=30)
     expiring = db.query(Receiving).filter(
         Receiving.deleted_at.is_(None),
         Receiving.expired_date.isnot(None),
-        Receiving.expired_date <= future.date(),
-        Receiving.expired_date >= datetime.utcnow().date(),
-    ).all()
+        Receiving.expired_date <= future_30,
+    ).order_by(Receiving.expired_date).all()
+
+    def expiry_level(exp_date):
+        if exp_date is None:
+            return None
+        delta = (exp_date - today).days
+        if delta < 0:
+            return "danger"
+        if delta <= 7:
+            return "critical"
+        if delta <= 14:
+            return "high"
+        return "warning"
+
+    expiring_batches = []
+    for r in expiring:
+        level = expiry_level(r.expired_date)
+        if level:
+            expiring_batches.append({
+                "batch_id": r.batch_id,
+                "product_name": r.product_name,
+                "expired_date": str(r.expired_date),
+                "days_until_expiry": (r.expired_date - today).days,
+                "level": level,
+            })
 
     return {
         "low_stock": [
             {"batch_id": i.batch_id, "product_name": i.product_name, "available_qty": i.available_qty}
             for i in low_stock
         ],
-        "expiring_batches": [
-            {"batch_id": r.batch_id, "product_name": r.product_name, "expired_date": str(r.expired_date)}
-            for r in expiring
-        ],
+        "expiring_batches": expiring_batches,
     }

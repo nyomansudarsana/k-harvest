@@ -7,7 +7,7 @@ import SearchableSelect from '../components/common/SearchableSelect'
 import api from '../services/api'
 import { formatDate, formatNumber, statusBadgeClass, debounce } from '../utils/helpers'
 
-const INIT_FROM_QT = { quotation_id: '', customer_name: '', customer_email: '', customer_address: '', quantity: '', invoice_date: new Date().toISOString().split('T')[0], notes: '' }
+const INIT_FROM_QT = { quotation_id: '', customer_name: '', customer_email: '', customer_address: '', invoice_date: new Date().toISOString().split('T')[0], notes: '' }
 
 // ─── Invoice Preview Document ──────────────────────────────────────────────────
 function InvoicePreviewDoc({ item, settings }) {
@@ -15,17 +15,30 @@ function InvoicePreviewDoc({ item, settings }) {
   const currency = item.currency_code || 'IDR'
   const rate = parseFloat(item.exchange_rate) || 1
   const taxPct = parseFloat(item.tax_percentage) ?? 0
-  const qty = parseFloat(item.quantity) || 0
-  const unitPrice = parseFloat(item.unit_price) || 0
-  const totalIDR = parseFloat(item.total_amount) || unitPrice * qty
-  const taxAmt = parseFloat(item.tax_amount) || (taxPct > 0 ? totalIDR * taxPct / 100 : 0)
-  const grandTotalIDR = parseFloat(item.grand_total) || (taxPct > 0 ? totalIDR + taxAmt : totalIDR)
+  const taxAmt = parseFloat(item.tax_amount) || 0
+  const grandTotalIDR = parseFloat(item.grand_total) || parseFloat(item.total_amount) || 0
   const toDisplay = v => currency !== 'IDR' ? v / rate : v
   const fmt = (v, d = 2) => formatNumber(v, d)
   const company = settings?.company_name || 'Kopernik Harvest'
   const address = settings?.company_address || ''
   const invDate = item.invoice_date ? new Date(item.invoice_date) : new Date()
   const fmtDate = d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  // Build line rows: use invoice_detail items if present, else fall back to single-product header
+  const lineItems = item.items?.length > 0 ? item.items.map(d => ({
+    product_name: d.product_name,
+    batch_id: d.batch_id,
+    qty: parseFloat(d.quantity) || 0,
+    unit_price: parseFloat(d.unit_price) || 0,
+    line_total: parseFloat(d.line_total) || 0,
+  })) : [{
+    product_name: item.product_name,
+    batch_id: item.batch_id,
+    qty: parseFloat(item.quantity) || 0,
+    unit_price: parseFloat(item.unit_price) || 0,
+    line_total: parseFloat(item.total_amount) || 0,
+  }]
+  const subtotalIDR = lineItems.reduce((s, l) => s + l.line_total, 0)
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: 13, color: '#222', lineHeight: 1.5, maxWidth: 700, margin: '0 auto' }}>
@@ -77,14 +90,16 @@ function InvoicePreviewDoc({ item, settings }) {
             </tr>
           </thead>
           <tbody>
-            <tr style={{ background: '#E8F5E9' }}>
-              <td style={{ padding: '6px 8px', textAlign: 'center' }}>1</td>
-              <td style={{ padding: '6px 8px' }}>{item.product_name}</td>
-              <td style={{ padding: '6px 8px' }}>{item.batch_id}</td>
-              <td style={{ padding: '6px 8px' }}>{fmt(qty, 0)}</td>
-              <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(toDisplay(unitPrice))}</td>
-              <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(toDisplay(totalIDR))}</td>
-            </tr>
+            {lineItems.map((li, idx) => (
+              <tr key={idx} style={{ background: idx % 2 ? '#f9f9f9' : '#E8F5E9' }}>
+                <td style={{ padding: '6px 8px', textAlign: 'center' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 8px' }}>{li.product_name}</td>
+                <td style={{ padding: '6px 8px' }}>{li.batch_id}</td>
+                <td style={{ padding: '6px 8px' }}>{fmt(li.qty, 0)}</td>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(toDisplay(li.unit_price))}</td>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(toDisplay(li.line_total))}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -93,7 +108,7 @@ function InvoicePreviewDoc({ item, settings }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <table style={{ width: 240, borderCollapse: 'collapse', fontSize: 11 }}>
           <tbody>
-            <tr><td style={{ padding: '5px 8px' }}>Subtotal</td><td style={{ padding: '5px 8px', textAlign: 'right' }}>{currency} {fmt(toDisplay(totalIDR))}</td></tr>
+            <tr><td style={{ padding: '5px 8px' }}>Subtotal</td><td style={{ padding: '5px 8px', textAlign: 'right' }}>{currency} {fmt(toDisplay(subtotalIDR))}</td></tr>
             {taxPct > 0 ? (
               <>
                 <tr style={{ background: '#f9f9f9' }}><td style={{ padding: '5px 8px' }}>Tax ({fmt(taxPct, 0)}%)</td><td style={{ padding: '5px 8px', textAlign: 'right' }}>{currency} {fmt(toDisplay(taxAmt))}</td></tr>
@@ -105,7 +120,7 @@ function InvoicePreviewDoc({ item, settings }) {
             ) : (
               <tr style={{ background: '#1A5C28', color: '#fff', fontWeight: 700, fontSize: 12 }}>
                 <td style={{ padding: '7px 8px' }}>Total</td>
-                <td style={{ padding: '7px 8px', textAlign: 'right' }}>{currency} {fmt(toDisplay(totalIDR))}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'right' }}>{currency} {fmt(toDisplay(subtotalIDR))}</td>
               </tr>
             )}
             {currency !== 'IDR' && (
@@ -203,7 +218,7 @@ export default function Invoice() {
     try {
       const res = await api.get(`/quotations/${qtId}`)
       setQuotation(res.data)
-      setForm(f => ({ ...f, quotation_id: qtId, quantity: String(res.data.available_qty), customer_name: res.data.customer_name || '', customer_email: res.data.customer_email || '' }))
+      setForm(f => ({ ...f, quotation_id: qtId, customer_name: res.data.customer_name || '', customer_email: res.data.customer_email || '' }))
     } catch { toast.error('Quotation not found') }
   }
 
@@ -217,10 +232,10 @@ export default function Invoice() {
   }
 
   const handleCreateFromQuotation = async () => {
-    if (!form.quotation_id || !form.customer_name || !form.quantity) { toast.warning('Fill required fields'); return }
+    if (!form.quotation_id || !form.customer_name) { toast.warning('Quotation and Customer Name are required'); return }
     setSaving(true)
     try {
-      await api.post('/invoices/from-quotation', { ...form, quantity: Number(form.quantity) })
+      await api.post('/invoices/from-quotation', { ...form })
       toast.success('Invoice created from quotation'); setFromQtModal(false); setQuotation(null); setForm(INIT_FROM_QT); fetchData(data.page)
     } finally { setSaving(false) }
   }
@@ -241,7 +256,15 @@ export default function Invoice() {
     } catch { /* error toast handled globally */ }
   }
 
-  const statusFlow = (s) => ({ Draft: ['Issued', 'Cancelled'], Issued: ['Paid', 'Cancelled'], Paid: [], Cancelled: [] }[s] || [])
+  // Enh 12: Void and Cancelled release the quotation back to Pending
+  const RELEASING = ['Cancelled', 'Void', 'Draft']
+  const statusFlow = (s) => ({
+    Draft: ['Issued', 'Cancelled', 'Void'],
+    Issued: ['Paid', 'Cancelled', 'Void'],
+    Paid: [],
+    Cancelled: [],
+    Void: [],
+  }[s] || [])
 
   const columns = [
     { key: 'invoice_id', label: 'Invoice ID', width: 120 },
@@ -302,7 +325,7 @@ export default function Invoice() {
             <div className="col-md-3">
               <select className="form-select kh-input" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); fetchData(1, search, e.target.value) }}>
                 <option value="">All Status</option>
-                {['Draft', 'Issued', 'Paid', 'Cancelled'].map(s => <option key={s}>{s}</option>)}
+                {['Draft', 'Issued', 'Paid', 'Cancelled', 'Void'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -321,21 +344,50 @@ export default function Invoice() {
           {quotation && (
             <div className="col-12">
               <div className="p-3 rounded" style={{ background: '#f0faf0', border: '1px solid #c8e6c9' }}>
-                <div className="row g-2">
-                  {[['Product', quotation.product_name], ['Batch', quotation.batch_id], ['Avail Qty', formatNumber(quotation.available_qty, 0)], ['Quote Price', `IDR ${formatNumber(quotation.quote_price)}`], ['Currency', quotation.currency_code || 'IDR'], ['Grand Total', `IDR ${formatNumber(quotation.grand_total || quotation.quote_price * quotation.available_qty * 1.1)}`]].map(([l, v]) => (
-                    <div key={l} className="col-6"><span style={{ fontSize: '0.72rem', color: '#6c757d' }}>{l}</span><div className="fw-semibold" style={{ fontSize: '0.875rem' }}>{v}</div></div>
-                  ))}
-                </div>
+                {quotation.items?.length > 0 ? (
+                  <>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1A5C28', marginBottom: 6 }}>
+                      <i className="bi bi-list-ul me-1" />Quotation Line Items ({quotation.items.length})
+                    </div>
+                    <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#E8F5E9' }}>
+                          {['#', 'Product', 'Batch', 'Qty', 'Unit Price', 'Line Total'].map(h => (
+                            <th key={h} style={{ padding: '4px 8px', fontWeight: 600, textAlign: h === '#' ? 'center' : h === 'Qty' || h === 'Unit Price' || h === 'Line Total' ? 'right' : 'left' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quotation.items.map((it, i) => (
+                          <tr key={i} style={{ borderTop: '1px solid #c8e6c9' }}>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>{i + 1}</td>
+                            <td style={{ padding: '4px 8px' }}>{it.product_name}</td>
+                            <td style={{ padding: '4px 8px' }}>{it.batch_id}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatNumber(it.quoted_qty, 0)}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'right' }}>IDR {formatNumber(it.unit_price)}</td>
+                            <td style={{ padding: '4px 8px', textAlign: 'right' }}>IDR {formatNumber(it.line_subtotal)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                      <span>Currency: <strong>{quotation.currency_code || 'IDR'}</strong></span>
+                      <span>Grand Total: <strong className="text-success">IDR {formatNumber(quotation.grand_total)}</strong></span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="row g-2">
+                    {[['Product', quotation.product_name], ['Batch', quotation.batch_id], ['Avail Qty', formatNumber(quotation.available_qty, 0)], ['Quote Price', `IDR ${formatNumber(quotation.quote_price)}`], ['Currency', quotation.currency_code || 'IDR'], ['Grand Total', `IDR ${formatNumber(quotation.grand_total)}`]].map(([l, v]) => (
+                      <div key={l} className="col-6"><span style={{ fontSize: '0.72rem', color: '#6c757d' }}>{l}</span><div className="fw-semibold" style={{ fontSize: '0.875rem' }}>{v}</div></div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
           <div className="col-md-6">
             <label className="kh-form-label">Invoice Date *</label>
             <input type="date" className="form-control kh-input" value={form.invoice_date} onChange={e => setForm(f => ({ ...f, invoice_date: e.target.value }))} />
-          </div>
-          <div className="col-md-6">
-            <label className="kh-form-label">Quantity *</label>
-            <input type="number" className="form-control kh-input" placeholder="0" min="0.01" step="0.01" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
           </div>
           <div className="col-md-6">
             <label className="kh-form-label">Customer Name *</label>
@@ -353,13 +405,6 @@ export default function Invoice() {
             <label className="kh-form-label">Notes</label>
             <textarea className="form-control kh-input" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
-          {quotation && form.quantity && (
-            <div className="col-12">
-              <div className="calc-box">
-                <div className="calc-total"><span>Estimated Total (IDR)</span><span>IDR {formatNumber(Number(form.quantity) * quotation.quote_price)}</span></div>
-              </div>
-            </div>
-          )}
         </div>
       </Modal>
 
@@ -397,7 +442,18 @@ export default function Invoice() {
             <select className="form-select kh-input" value={newStatus} onChange={e => setNewStatus(e.target.value)}>
               {statusFlow(statusModal.invoice_status).map(s => <option key={s}>{s}</option>)}
             </select>
-            {newStatus === 'Issued' && <div className="alert alert-info mt-3"><i className="bi bi-info-circle me-2" />Issuing this invoice will automatically deduct <strong>{formatNumber(statusModal.quantity, 0)}</strong> units from batch <strong>{statusModal.batch_id}</strong>.</div>}
+            {newStatus === 'Issued' && (
+              <div className="alert alert-info mt-3">
+                <i className="bi bi-info-circle me-2" />
+                {statusModal.items?.length > 1
+                  ? <>Issuing this invoice will deduct stock for <strong>{statusModal.items.length}</strong> product line items.</>
+                  : <>Issuing this invoice will deduct <strong>{formatNumber(statusModal.quantity, 0)}</strong> units from batch <strong>{statusModal.batch_id}</strong>.</>
+                }
+              </div>
+            )}
+            {['Cancelled', 'Void'].includes(newStatus) && statusModal.quotation_id && (
+              <div className="alert alert-warning mt-3"><i className="bi bi-arrow-counterclockwise me-2" />Cancelling this invoice will release quotation <strong>{statusModal.quotation_id}</strong> back to <strong>Pending</strong> status — it can be re-invoiced.</div>
+            )}
           </div>
         )}
       </Modal>

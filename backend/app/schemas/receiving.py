@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional
 from datetime import datetime, date
+from app.schemas.receiving_extra_cost import ExtraCostResponse
 
 
 class ReceivingBase(BaseModel):
@@ -53,6 +54,8 @@ class ReceivingResponse(ReceivingBase):
     batch_id: str
     created_at: datetime
     updated_at: datetime
+    extra_costs: list[ExtraCostResponse] = []
+    total_cost_basis: float = 0.0
 
 
 class ReceivingListResponse(BaseModel):

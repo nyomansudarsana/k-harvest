@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { section: 'Operations' },
   { path: '/receiving', icon: 'bi-arrow-down-circle', label: 'Receiving' },
   { path: '/qc', icon: 'bi-clipboard-check', label: 'QC' },
+  { path: '/qc-failed', icon: 'bi-x-circle', label: 'QC Failed' },
   { section: 'Inventory' },
   { path: '/inventory', icon: 'bi-layers', label: 'Stock Inventory' },
   { path: '/stock-opname', icon: 'bi-calculator', label: 'Stock Opname' },

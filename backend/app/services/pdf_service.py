@@ -110,20 +110,39 @@ def generate_invoice_pdf(invoice_data: dict, settings_data: dict) -> bytes:
     elems.append(Spacer(1, 5 * mm))
 
     # ── LINE ITEMS ────────────────────────────────────────────────────────────
-    qty = float(invoice_data.get("quantity", 0))
-    unit_price = float(invoice_data.get("unit_price", 0))
-    total_amount = float(invoice_data.get("total_amount", qty * unit_price))
+    raw_items = invoice_data.get("items") or []
+    if raw_items:
+        # Multi-product invoice: render each detail row
+        line_rows = []
+        for i, it in enumerate(raw_items):
+            q = float(it.get("quantity", 0))
+            up = float(it.get("unit_price", 0))
+            lt = float(it.get("line_total", q * up))
+            line_rows.append([
+                str(i + 1),
+                it.get("product_name", ""),
+                it.get("batch_id", ""),
+                _fmt(q, 0),
+                _fmt(to_display(up)),
+                _fmt(to_display(lt)),
+            ])
+        total_amount = float(invoice_data.get("total_amount", sum(float(it.get("line_total", 0)) for it in raw_items)))
+    else:
+        # Legacy single-product invoice
+        qty = float(invoice_data.get("quantity", 0))
+        unit_price = float(invoice_data.get("unit_price", 0))
+        total_amount = float(invoice_data.get("total_amount", qty * unit_price))
+        line_rows = [[
+            "1",
+            invoice_data.get("product_name", ""),
+            invoice_data.get("batch_id", ""),
+            _fmt(qty, 0),
+            _fmt(to_display(unit_price)),
+            _fmt(to_display(total_amount)),
+        ]]
 
     hdr = ["#", "Product", "Batch ID", "Qty", f"Unit Price ({currency})", f"Amount ({currency})"]
-    row = [
-        "1",
-        invoice_data.get("product_name", ""),
-        invoice_data.get("batch_id", ""),
-        _fmt(qty, 0),
-        f"{_fmt(to_display(unit_price))}",
-        f"{_fmt(to_display(total_amount))}",
-    ]
-    items_tbl = Table([hdr, row], colWidths=[8 * mm, 52 * mm, 32 * mm, 18 * mm, 30 * mm, 30 * mm])
+    items_tbl = Table([hdr] + line_rows, colWidths=[8 * mm, 52 * mm, 32 * mm, 18 * mm, 30 * mm, 30 * mm])
     items_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), BRAND_GREEN),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),

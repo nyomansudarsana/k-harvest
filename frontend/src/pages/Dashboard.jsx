@@ -7,6 +7,50 @@ import { formatNumber } from '../utils/helpers'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
 
+const EXPIRY_STYLE = {
+  danger:   { bg: '#fff5f5', border: '#fed7d7', icon: 'text-danger', label: 'Expired',   labelBg: '#9b2335', textColor: '#742a2a' },
+  critical: { bg: '#fff5f5', border: '#fed7d7', icon: 'text-danger', label: 'Critical',  labelBg: '#c0392b', textColor: '#742a2a' },
+  high:     { bg: '#fffaf0', border: '#fbd38d', icon: 'text-warning', label: 'High',     labelBg: '#dd6b20', textColor: '#744210' },
+  warning:  { bg: '#fffff0', border: '#faf089', icon: 'text-warning', label: 'Warning',  labelBg: '#d69e2e', textColor: '#744210' },
+}
+
+function ExpiryBadge({ level }) {
+  const s = EXPIRY_STYLE[level] || EXPIRY_STYLE.warning
+  return (
+    <span style={{ background: s.labelBg, color: '#fff', borderRadius: 4, padding: '2px 7px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      {s.label}
+    </span>
+  )
+}
+
+function ExpiryItem({ batch }) {
+  const s = EXPIRY_STYLE[batch.level] || EXPIRY_STYLE.warning
+  const days = batch.days_until_expiry
+  return (
+    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8, padding: '8px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <i className={`bi bi-calendar-x-fill ${s.icon}`} style={{ fontSize: '1.1rem', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ fontWeight: 600, fontSize: '0.82rem', color: s.textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {batch.product_name}
+          </span>
+          <ExpiryBadge level={batch.level} />
+        </div>
+        <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>
+          Batch <strong>{batch.batch_id}</strong>
+          {' · '}
+          {days < 0
+            ? <span style={{ color: '#9b2335', fontWeight: 700 }}>Expired {Math.abs(days)}d ago</span>
+            : days === 0
+              ? <span style={{ color: '#9b2335', fontWeight: 700 }}>Expires TODAY</span>
+              : <span style={{ color: s.textColor }}>Expires in <strong>{days}d</strong> ({batch.expired_date})</span>
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [kpis, setKpis] = useState(null)
   const [monthlyData, setMonthlyData] = useState([])
@@ -56,6 +100,14 @@ export default function Dashboard() {
       borderColor: '#fff',
     }],
   }
+
+  const totalAlerts = (alerts.low_stock?.length || 0) + (alerts.expiring_batches?.length || 0)
+
+  // Sort expiry: danger first, then critical, high, warning
+  const sortedExpiry = [...(alerts.expiring_batches || [])].sort((a, b) => {
+    const order = { danger: 0, critical: 1, high: 2, warning: 3 }
+    return (order[a.level] ?? 9) - (order[b.level] ?? 9)
+  })
 
   if (loading) return <div className="d-flex justify-content-center py-5"><div className="spinner-border text-primary" /></div>
 
@@ -141,18 +193,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Alerts */}
+        {/* Alerts — enhanced with expiry severity levels */}
         <div className="col-md-6">
           <div className="kh-card h-100">
             <div className="kh-card-header">
               <h6 className="mb-0 fw-semibold"><i className="bi bi-bell me-2 text-danger" />Alerts</h6>
-              <span className="badge bg-danger">{alerts.low_stock.length + alerts.expiring_batches.length}</span>
+              {totalAlerts > 0 && <span className="badge bg-danger">{totalAlerts}</span>}
             </div>
-            <div className="kh-card-body" style={{ maxHeight: 280, overflowY: 'auto' }}>
-              {alerts.low_stock.length === 0 && alerts.expiring_batches.length === 0
+            <div className="kh-card-body" style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {totalAlerts === 0
                 ? <div className="text-center text-muted py-4"><i className="bi bi-check-circle fs-2 d-block mb-2 text-success" />No active alerts</div>
                 : (
                   <>
+                    {/* Low Stock */}
                     {alerts.low_stock.map((a, i) => (
                       <div key={i} className="alert-item alert-low-stock">
                         <i className="bi bi-exclamation-triangle-fill text-warning" />
@@ -162,15 +215,19 @@ export default function Dashboard() {
                         </div>
                       </div>
                     ))}
-                    {alerts.expiring_batches.map((a, i) => (
-                      <div key={i} className="alert-item alert-expiring">
-                        <i className="bi bi-calendar-x-fill text-danger" />
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>Expiring: {a.product_name}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#721c24' }}>Batch {a.batch_id} · Expires {a.expired_date}</div>
+
+                    {/* Expiry — sorted by severity with color coding */}
+                    {sortedExpiry.length > 0 && (
+                      <div>
+                        {alerts.low_stock.length > 0 && <div style={{ borderTop: '1px solid #edf2f7', margin: '8px 0' }} />}
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6c757d', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Expiry Alerts ({sortedExpiry.length})
                         </div>
+                        {sortedExpiry.map((batch, i) => (
+                          <ExpiryItem key={i} batch={batch} />
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </>
                 )}
             </div>

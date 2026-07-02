@@ -7,31 +7,30 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from app.database import engine, Base, run_migrations
+from app.database import engine, Base, run_migrations, seed_quotation_details
 from app.core.config import settings
 
-# Import all models so they're registered before create_all
 from app.models import (
-    User, ProductMaster, SupplierMaster, Receiving, QC,
-    Inventory, StockMovement, StockOpname, Quotation, Invoice, SystemSettings,
+    User, ProductMaster, SupplierMaster, Receiving, ReceivingExtraCost,
+    QC, QCFailedInventory, Inventory, StockMovement, StockOpname,
+    Quotation, QuotationDetail, Invoice, InvoiceDetail, SystemSettings,
 )
 
 from app.routers import (
     auth, users, products, suppliers, receiving, qc,
-    inventory, stock_opname, quotation, invoice, settings as settings_router, dashboard,
+    inventory, stock_opname, quotation, invoice,
+    settings as settings_router, dashboard,
 )
 from app.routers import exchange_rates
 
-# Run ALTER TABLE migrations for new columns (idempotent)
 run_migrations(engine)
-
-# Create any new tables introduced by model changes
 Base.metadata.create_all(bind=engine)
+seed_quotation_details(engine)
 
 app = FastAPI(
     title="Kopernik Harvest API",
     description="Inventory, Product Tracking & Quotation Management System",
-    version="1.1.0",
+    version="1.2.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -64,7 +63,7 @@ app.include_router(exchange_rates.router, prefix=PREFIX)
 
 @app.get("/")
 def root():
-    return {"message": "Kopernik Harvest API", "version": "1.1.0", "docs": "/api/docs"}
+    return {"message": "Kopernik Harvest API", "version": "1.2.0", "docs": "/api/docs"}
 
 
 @app.get("/health")

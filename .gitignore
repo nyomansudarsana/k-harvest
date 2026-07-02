@@ -23,6 +23,7 @@ frontend/.env.production
 
 # SQLite database — contains runtime data
 backend/kopernik_harvest.db
+backend/harvest.db
 backend/data/
 
 # Node

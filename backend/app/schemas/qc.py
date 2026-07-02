@@ -5,11 +5,15 @@ from datetime import datetime, date
 
 class QCBase(BaseModel):
     batch_id: str
-    commodity_id: str
+    commodity_id: Optional[str] = None
     moisture_content: Optional[float] = None
     quality_grade: Optional[str] = None
+    product_grade: Optional[str] = None
     inspection_date: Optional[date] = None
     qc_status: str = "Pending"
+    draft_status: str = "Submitted"
+    passed_qty: Optional[float] = None
+    failed_qty: Optional[float] = None
     remarks: Optional[str] = None
 
 
@@ -18,10 +22,15 @@ class QCCreate(QCBase):
 
 
 class QCUpdate(BaseModel):
+    commodity_id: Optional[str] = None
     moisture_content: Optional[float] = None
     quality_grade: Optional[str] = None
+    product_grade: Optional[str] = None
     inspection_date: Optional[date] = None
     qc_status: Optional[str] = None
+    draft_status: Optional[str] = None
+    passed_qty: Optional[float] = None
+    failed_qty: Optional[float] = None
     remarks: Optional[str] = None
 
 

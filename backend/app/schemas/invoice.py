@@ -3,6 +3,19 @@ from typing import Optional
 from datetime import datetime, date
 
 
+class InvoiceDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    invoice_id: str
+    batch_id: str
+    commodity_id: str
+    product_name: str
+    quantity: float
+    unit_price: float
+    line_total: float
+
+
 class InvoiceBase(BaseModel):
     invoice_date: date
     customer_name: str
@@ -25,7 +38,8 @@ class InvoiceFromQuotation(BaseModel):
     customer_name: str
     customer_email: Optional[str] = None
     customer_address: Optional[str] = None
-    quantity: float
+    # quantity is no longer required — multi-product invoices inherit all detail rows
+    quantity: Optional[float] = None
     invoice_date: date
     notes: Optional[str] = None
 
@@ -53,6 +67,7 @@ class InvoiceResponse(InvoiceBase):
     tax_percentage: Optional[float] = 0.0
     tax_amount: Optional[float] = 0.0
     grand_total: Optional[float] = 0.0
+    items: list[InvoiceDetailResponse] = []
     created_at: datetime
     updated_at: datetime
 
