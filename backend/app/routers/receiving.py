@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.receiving import ReceivingCreate, ReceivingUpdate, ReceivingResponse, ReceivingListResponse
 from app.schemas.receiving_extra_cost import ExtraCostCreate, ExtraCostResponse
 from app.services.inventory_service import add_stock
+from app.services.workflow_service import trigger_workflow
 from app.utils.id_generator import generate_id, generate_batch_id
 
 router = APIRouter(prefix="/receiving", tags=["Receiving"])
@@ -106,6 +107,7 @@ def get_available_batches(
 @router.post("", response_model=ReceivingResponse, status_code=status.HTTP_201_CREATED)
 def create_receiving(
     payload: ReceivingCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -134,6 +136,13 @@ def create_receiving(
 
     db.commit()
     db.refresh(receiving)
+
+    trigger_workflow(
+        module_name="receiving", event_name="created",
+        record_id=receiving_id, record_number=receiving_id,
+        triggered_by=current_user, db=db, background_tasks=background_tasks,
+    )
+
     return _build_response(receiving, db)
 
 

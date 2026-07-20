@@ -1,19 +1,25 @@
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from app.database import engine, Base, run_migrations, seed_quotation_details
+from app.database import engine, Base, run_migrations, seed_quotation_details, seed_command_center_defaults, seed_rbac_defaults, seed_workflow_defaults
 from app.core.config import settings
 
 from app.models import (
     User, ProductMaster, SupplierMaster, Receiving, ReceivingExtraCost,
     QC, QCFailedInventory, Inventory, StockMovement, StockOpname,
     Quotation, QuotationDetail, Invoice, InvoiceDetail, SystemSettings,
+    CCCategory, CCPriority, CCStatus, CCLabel,
+    CCTask, CCTaskAssignee, CCTaskLabel, CCChecklist, CCAttachment,
+    CCTaskLocation, CCReminder, CCComment, CCActivity, CCNotification,
+    Role, MenuPermission, WorkflowRule,
 )
 
 from app.routers import (
@@ -22,10 +28,17 @@ from app.routers import (
     settings as settings_router, dashboard,
 )
 from app.routers import exchange_rates
+from app.routers import command_center
+from app.routers import rbac as rbac_router
+from app.routers import workflow as workflow_router
 
+os.makedirs("uploads/cc_attachments", exist_ok=True)
 run_migrations(engine)
 Base.metadata.create_all(bind=engine)
 seed_quotation_details(engine)
+seed_command_center_defaults(engine)
+seed_rbac_defaults(engine)
+seed_workflow_defaults(engine)
 
 app = FastAPI(
     title="Kopernik Harvest API",
@@ -59,6 +72,12 @@ app.include_router(invoice.router, prefix=PREFIX)
 app.include_router(settings_router.router, prefix=PREFIX)
 app.include_router(dashboard.router, prefix=PREFIX)
 app.include_router(exchange_rates.router, prefix=PREFIX)
+app.include_router(command_center.router, prefix=PREFIX)
+app.include_router(rbac_router.router, prefix=PREFIX)
+app.include_router(workflow_router.router, prefix=PREFIX)
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/")

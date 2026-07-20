@@ -15,6 +15,8 @@ import Invoice from './pages/Invoice'
 import QCFailed from './pages/QCFailed'
 import UserManagement from './pages/UserManagement'
 import Settings from './pages/Settings'
+import CommandCenter from './pages/CommandCenter'
+import WorkflowRules from './pages/WorkflowRules'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -40,6 +42,8 @@ function AppRoutes() {
         <Route path="invoice" element={<Invoice />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="command-center" element={<CommandCenter />} />
+        <Route path="workflow-rules" element={<WorkflowRules />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

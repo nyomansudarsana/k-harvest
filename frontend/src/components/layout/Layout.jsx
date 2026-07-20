@@ -15,6 +15,8 @@ const PAGE_TITLES = {
   '/invoice': 'Invoice',
   '/users': 'User Management',
   '/settings': 'Settings',
+  '/command-center': 'Command Center',
+  '/qc-failed': 'QC Failed',
 }
 
 export default function Layout() {

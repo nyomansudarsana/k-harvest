@@ -40,15 +40,19 @@ def list_users(
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(payload: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    if not payload.email or not payload.email.strip():
+        raise HTTPException(status_code=400, detail="Email address is required")
     if db.query(User).filter(User.username == payload.username, User.deleted_at.is_(None)).first():
         raise HTTPException(status_code=400, detail="Username already exists")
+    if db.query(User).filter(User.email == payload.email.lower().strip(), User.deleted_at.is_(None)).first():
+        raise HTTPException(status_code=400, detail="Email address already registered")
     user_id = generate_id(db, User, "user_id", "USR", 5)
     user = User(
         user_id=user_id,
         full_name=payload.full_name,
         username=payload.username,
         password_hash=get_password_hash(payload.password),
-        email=payload.email,
+        email=payload.email.lower().strip(),
         role=payload.role,
         status=payload.status,
     )
@@ -71,8 +75,34 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
     user = db.query(User).filter(User.user_id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if payload.email is not None:
+        email_clean = payload.email.lower().strip()
+        if not email_clean:
+            raise HTTPException(status_code=400, detail="Email address cannot be empty")
+        conflict = db.query(User).filter(
+            User.email == email_clean,
+            User.user_id != user_id,
+            User.deleted_at.is_(None),
+        ).first()
+        if conflict:
+            raise HTTPException(status_code=400, detail="Email address already in use")
+        payload = payload.model_copy(update={"email": email_clean})
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(user, field, value)
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/{user_id}/toggle-status", response_model=UserResponse)
+def toggle_user_status(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    user = db.query(User).filter(User.user_id == user_id, User.deleted_at.is_(None)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.user_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+    user.status = "Inactive" if user.status == "Active" else "Active"
     user.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(user)

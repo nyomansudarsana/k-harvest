@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime, date
@@ -16,6 +16,7 @@ from app.schemas.invoice import (
 )
 from app.services.inventory_service import deduct_stock
 from app.services.pdf_service import generate_invoice_pdf
+from app.services.workflow_service import trigger_workflow
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -74,6 +75,7 @@ def list_invoices(
 @router.post("", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 def create_invoice(
     payload: InvoiceCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -91,12 +93,20 @@ def create_invoice(
     db.add(invoice)
     db.commit()
     db.refresh(invoice)
+
+    trigger_workflow(
+        module_name="invoice", event_name="created",
+        record_id=invoice_id, record_number=invoice_id,
+        triggered_by=current_user, db=db, background_tasks=background_tasks,
+    )
+
     return _build_response(invoice, db)
 
 
 @router.post("/from-quotation", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 def create_from_quotation(
     payload: InvoiceFromQuotation,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -199,6 +209,13 @@ def create_from_quotation(
     q.status = "Converted to Invoice"
     db.commit()
     db.refresh(invoice)
+
+    trigger_workflow(
+        module_name="invoice", event_name="created",
+        record_id=invoice_id, record_number=invoice_id,
+        triggered_by=current_user, db=db, background_tasks=background_tasks,
+    )
+
     return _build_response(invoice, db)
 
 

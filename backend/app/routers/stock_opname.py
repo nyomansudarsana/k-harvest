@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
@@ -8,6 +8,7 @@ from app.models.inventory import Inventory
 from app.models.user import User
 from app.schemas.stock_opname import StockOpnameCreate, StockOpnameResponse, StockOpnameListResponse
 from app.services.inventory_service import adjust_stock
+from app.services.workflow_service import trigger_workflow
 from app.utils.id_generator import generate_id
 
 router = APIRouter(prefix="/stock-opname", tags=["Stock Opname"])
@@ -46,7 +47,7 @@ def get_system_qty(batch_id: str, db: Session = Depends(get_db), current_user: U
 
 
 @router.post("", response_model=StockOpnameResponse, status_code=status.HTTP_201_CREATED)
-def create_opname(payload: StockOpnameCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_opname(payload: StockOpnameCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     inv = db.query(Inventory).filter(Inventory.batch_id == payload.batch_id, Inventory.deleted_at.is_(None)).first()
     system_qty = inv.available_qty if inv else 0.0
     difference = payload.physical_qty - system_qty
@@ -79,4 +80,18 @@ def create_opname(payload: StockOpnameCreate, db: Session = Depends(get_db), cur
 
     db.commit()
     db.refresh(opname)
+
+    trigger_workflow(
+        module_name="stock_opname", event_name="created",
+        record_id=opname_id, record_number=opname_id,
+        triggered_by=current_user, db=db, background_tasks=background_tasks,
+    )
+    if difference != 0:
+        trigger_workflow(
+            module_name="stock_opname", event_name="discrepancy",
+            record_id=opname_id, record_number=opname_id,
+            triggered_by=current_user, db=db, background_tasks=background_tasks,
+            description=f"Discrepancy of {difference:+.2f} units on batch {payload.batch_id}",
+        )
+
     return opname

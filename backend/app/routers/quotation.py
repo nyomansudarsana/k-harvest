@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
 from app.database import get_db
 from app.core.deps import get_current_user
+from app.services.workflow_service import trigger_workflow
 from app.models.quotation import Quotation
 from app.models.quotation_detail import QuotationDetail
 from app.models.user import User
@@ -117,6 +118,7 @@ def list_quotations(
 @router.post("", response_model=QuotationResponse, status_code=status.HTTP_201_CREATED)
 def create_quotation(
     payload: QuotationCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -209,6 +211,13 @@ def create_quotation(
 
     db.commit()
     db.refresh(q)
+
+    trigger_workflow(
+        module_name="quotation", event_name="created",
+        record_id=quotation_id, record_number=quotation_id,
+        triggered_by=current_user, db=db, background_tasks=background_tasks,
+    )
+
     return _build_response(q, db)
 
 

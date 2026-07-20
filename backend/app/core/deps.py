@@ -36,3 +36,25 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "Administrator":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
     return current_user
+
+
+def require_permission(menu_code: str, action: str = "can_view"):
+    """Factory that returns a FastAPI dependency checking role-based menu permissions."""
+    def _check(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if current_user.role == "Administrator":
+            return current_user
+        from app.models.rbac import MenuPermission
+        perm = db.query(MenuPermission).filter(
+            MenuPermission.role_name == current_user.role,
+            MenuPermission.menu_code == menu_code,
+        ).first()
+        if not perm or not getattr(perm, action, False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have '{action}' permission for '{menu_code}'",
+            )
+        return current_user
+    return _check
