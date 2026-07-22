@@ -21,3 +21,4 @@ from app.models.command_center import (
 )
 from app.models.rbac import Role, MenuPermission
 from app.models.workflow import WorkflowRule
+from app.models.client import ClientMaster

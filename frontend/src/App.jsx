@@ -17,6 +17,7 @@ import UserManagement from './pages/UserManagement'
 import Settings from './pages/Settings'
 import CommandCenter from './pages/CommandCenter'
 import WorkflowRules from './pages/WorkflowRules'
+import Clients from './pages/Clients'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="stock-opname" element={<StockOpname />} />
         <Route path="quotation" element={<Quotation />} />
         <Route path="invoice" element={<Invoice />} />
+        <Route path="clients" element={<Clients />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="settings" element={<Settings />} />
         <Route path="command-center" element={<CommandCenter />} />

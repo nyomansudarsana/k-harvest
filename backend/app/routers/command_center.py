@@ -14,6 +14,10 @@ from app.models.command_center import (
     CCReminder, CCComment, CCActivity, CCNotification,
 )
 from app.models.user import User
+from app.models.client import ClientMaster
+from app.models.inventory import Inventory
+from app.models.receiving import Receiving
+from app.models.qc import QC
 from app.schemas.command_center import (
     CCTaskCreate, CCTaskUpdate, CCTaskStatusUpdate,
     CCCommentCreate, CCCommentUpdate,
@@ -59,6 +63,13 @@ def _build_task_response(task: CCTask, db: Session, include_detail: bool = False
         "related_module": getattr(task, "related_module", None),
         "related_record_id": getattr(task, "related_record_id", None),
         "related_record_number": getattr(task, "related_record_number", None),
+        "client_id": getattr(task, "client_id", None),
+        "client_name": None,
+        "client_company": None,
+        "related_inventory_id": getattr(task, "related_inventory_id", None),
+        "related_batch_id": getattr(task, "related_batch_id", None),
+        "related_receiving_id": getattr(task, "related_receiving_id", None),
+        "inventory_info": None,
         "comment_count": 0,
         "attachment_count": 0,
         "checklist_total": 0,
@@ -91,6 +102,33 @@ def _build_task_response(task: CCTask, db: Session, include_detail: bool = False
             "user_full_name": u.full_name if u else None,
             "user_username": u.username if u else None,
         })
+
+    # Client enrichment
+    client_id_val = getattr(task, "client_id", None)
+    if client_id_val:
+        client = db.query(ClientMaster).filter(
+            ClientMaster.client_id == client_id_val,
+            ClientMaster.deleted_at.is_(None),
+        ).first()
+        if client:
+            data["client_name"] = client.client_name
+            data["client_company"] = client.company_name
+
+    # Inventory enrichment
+    inv_id_val = getattr(task, "related_inventory_id", None)
+    if inv_id_val:
+        inv = db.query(Inventory).filter(
+            Inventory.inventory_id == inv_id_val,
+            Inventory.deleted_at.is_(None),
+        ).first()
+        if inv:
+            data["inventory_info"] = {
+                "inventory_id": inv.inventory_id,
+                "commodity_id": inv.commodity_id,
+                "product_name": inv.product_name,
+                "batch_id": inv.batch_id,
+                "available_qty": inv.available_qty,
+            }
 
     if task.category_id:
         cat = db.query(CCCategory).filter(CCCategory.id == task.category_id).first()
@@ -307,6 +345,43 @@ def delete_label(
 
 # ── Task Endpoints ────────────────────────────────────────────────────────────
 
+@router.get("/inventory/search")
+def search_inventory(
+    q: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Search inventory records for task inventory reference picker. Returns grade from QC."""
+    query = db.query(Inventory).filter(Inventory.deleted_at.is_(None), Inventory.available_qty > 0)
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            Inventory.product_name.ilike(like) |
+            Inventory.batch_id.ilike(like) |
+            Inventory.commodity_id.ilike(like) |
+            Inventory.inventory_id.ilike(like)
+        )
+    items = query.order_by(Inventory.product_name).limit(100).all()
+    result = []
+    for inv in items:
+        qc_rec = (
+            db.query(QC)
+            .filter(QC.batch_id == inv.batch_id, QC.deleted_at.is_(None), QC.qc_status == "Passed")
+            .order_by(QC.id.desc())
+            .first()
+        )
+        result.append({
+            "inventory_id": inv.inventory_id,
+            "commodity_id": inv.commodity_id,
+            "product_name": inv.product_name,
+            "batch_id": inv.batch_id,
+            "available_qty": inv.available_qty,
+            "quality_grade": qc_rec.quality_grade if qc_rec else None,
+            "product_grade": qc_rec.product_grade if qc_rec else None,
+        })
+    return result
+
+
 @router.get("/tasks", response_model=CCTaskListResponse)
 def list_tasks(
     page: int = 1,
@@ -316,6 +391,7 @@ def list_tasks(
     priority_id: Optional[int] = None,
     status_id: Optional[int] = None,
     assigned_to: Optional[int] = None,
+    client_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -330,6 +406,8 @@ def list_tasks(
         q = q.filter(CCTask.status_id == status_id)
     if assigned_to:
         q = q.filter(CCTask.assigned_to == assigned_to)
+    if client_id:
+        q = q.filter(getattr(CCTask, "client_id", None) == client_id)
 
     total = q.count()
     tasks = q.order_by(CCTask.created_at.desc()).offset((page - 1) * size).limit(size).all()
@@ -371,6 +449,10 @@ def create_task(
         created_by=current_user.id,
         start_date=payload.start_date,
         due_date=payload.due_date,
+        client_id=payload.client_id,
+        related_inventory_id=payload.related_inventory_id,
+        related_batch_id=payload.related_batch_id,
+        related_receiving_id=payload.related_receiving_id,
     )
     db.add(task)
     db.flush()
@@ -456,8 +538,32 @@ def update_task(
     old_assigned = task.assigned_to
     old_due_date = task.due_date
 
-    for field, value in payload.model_dump(exclude_none=True).items():
-        setattr(task, field, value)
+    upd = payload.model_dump(exclude_none=True)
+    new_assignee_ids = upd.pop("assignee_ids", None)  # Handle separately
+
+    # Only set mapped column fields
+    _SKIP = {"assignee_ids"}
+    for field, value in upd.items():
+        if field not in _SKIP:
+            setattr(task, field, value)
+
+    # Replace assignees when explicitly provided
+    if new_assignee_ids is not None:
+        db.query(CCTaskAssignee).filter(
+            CCTaskAssignee.task_id == task_id,
+            CCTaskAssignee.deleted_at.is_(None),
+        ).update({"deleted_at": datetime.utcnow()})
+        all_ids = []
+        if task.assigned_to:
+            all_ids.append(task.assigned_to)
+        for uid in new_assignee_ids:
+            if uid not in all_ids:
+                all_ids.append(uid)
+        for i, uid in enumerate(all_ids):
+            db.add(CCTaskAssignee(
+                task_id=task_id, user_id=uid,
+                assigned_by=current_user.id, is_primary=(i == 0),
+            ))
 
     if payload.status_id and payload.status_id != old_status_id:
         old_st = db.query(CCStatus).filter(CCStatus.id == old_status_id).first()

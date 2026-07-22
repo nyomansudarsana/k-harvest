@@ -86,6 +86,11 @@ class CCTaskCreate(BaseModel):
     assignee_ids: List[int] = []                # Additional assignees
     start_date: Optional[date] = None
     due_date: Optional[date] = None
+    # Client & inventory linkage
+    client_id: Optional[str] = None
+    related_inventory_id: Optional[str] = None
+    related_batch_id: Optional[str] = None
+    related_receiving_id: Optional[str] = None
 
 
 class CCTaskUpdate(BaseModel):
@@ -98,6 +103,11 @@ class CCTaskUpdate(BaseModel):
     assignee_ids: Optional[List[int]] = None    # When provided, replaces all assignees
     start_date: Optional[date] = None
     due_date: Optional[date] = None
+    # Client & inventory linkage
+    client_id: Optional[str] = None
+    related_inventory_id: Optional[str] = None
+    related_batch_id: Optional[str] = None
+    related_receiving_id: Optional[str] = None
 
 
 class CCTaskStatusUpdate(BaseModel):
@@ -133,6 +143,15 @@ class CCTaskResponse(BaseModel):
     related_module: Optional[str] = None
     related_record_id: Optional[str] = None
     related_record_number: Optional[str] = None
+    # Client linkage
+    client_id: Optional[str] = None
+    client_name: Optional[str] = None
+    client_company: Optional[str] = None
+    # Inventory reference
+    related_inventory_id: Optional[str] = None
+    related_batch_id: Optional[str] = None
+    related_receiving_id: Optional[str] = None
+    inventory_info: Optional[Any] = None
     # Enriched
     category_name: Optional[str] = None
     category_color: Optional[str] = None

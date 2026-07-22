@@ -50,6 +50,8 @@ const EMPTY_FORM = {
   title: '', description: '', category_id: '', priority_id: '',
   status_id: '', assigned_to: '', start_date: '', due_date: '',
   assignee_ids: [],
+  client_id: '',
+  related_inventory_id: '', related_batch_id: '', related_receiving_id: '',
 }
 const EMPTY_ATTACH = { file_name: '', external_url: '', source_type: 'url' }
 const EMPTY_LOC = { name: '', latitude: '', longitude: '', maps_url: '' }
@@ -128,10 +130,70 @@ function fileIcon(mime) {
   return FILE_ICONS[mime] || '📎'
 }
 
-function TaskForm({ form, setForm, categories, priorities, statuses, users, submitting, onSubmit, onCancel, isEdit, pendingAttachments, setPendingAttachments }) {
+function TaskForm({ form, setForm, categories, priorities, statuses, users, clients, submitting, onSubmit, onCancel, isEdit, pendingAttachments, setPendingAttachments }) {
   const pendingRef = useRef(null)
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkInput, setLinkInput] = useState({ name: '', url: '' })
+  const [invSearch, setInvSearch] = useState('')
+  const [invAllItems, setInvAllItems] = useState([])
+  const [invResults, setInvResults] = useState([])
+  const [invLoading, setInvLoading] = useState(false)
+  const [invOpen, setInvOpen] = useState(false)
+  const invRef = useRef(null)
+
+  async function loadInventory() {
+    if (invAllItems.length > 0) { setInvOpen(true); return }
+    setInvLoading(true)
+    try {
+      const { data } = await api.get('/command-center/inventory/search')
+      setInvAllItems(data)
+      setInvResults(data)
+      setInvOpen(true)
+    } catch { setInvAllItems([]) }
+    finally { setInvLoading(false) }
+  }
+
+  function filterInventory(q) {
+    if (!q.trim()) {
+      setInvResults(invAllItems)
+    } else {
+      const lower = q.toLowerCase()
+      setInvResults(invAllItems.filter(item =>
+        item.product_name?.toLowerCase().includes(lower) ||
+        item.batch_id?.toLowerCase().includes(lower) ||
+        item.commodity_id?.toLowerCase().includes(lower) ||
+        item.quality_grade?.toLowerCase().includes(lower) ||
+        item.product_grade?.toLowerCase().includes(lower)
+      ))
+    }
+  }
+
+  function handleInvFocus() {
+    loadInventory()
+  }
+
+  function handleInvChange(e) {
+    setInvSearch(e.target.value)
+    filterInventory(e.target.value)
+    setInvOpen(true)
+  }
+
+  function selectInventory(item) {
+    setForm(f => ({
+      ...f,
+      related_inventory_id: item.inventory_id,
+      related_batch_id: item.batch_id,
+    }))
+    const grade = item.product_grade || item.quality_grade
+    setInvSearch(`${item.batch_id} — ${item.product_name}${grade ? ` (${grade})` : ''}`)
+    setInvOpen(false)
+  }
+
+  function clearInventory() {
+    setForm(f => ({ ...f, related_inventory_id: '', related_batch_id: '', related_receiving_id: '' }))
+    setInvSearch('')
+    setInvOpen(false)
+  }
 
   function handlePendingFile(e) {
     const files = Array.from(e.target.files || [])
@@ -242,6 +304,82 @@ function TaskForm({ form, setForm, categories, priorities, statuses, users, subm
         </div>
       </div>
 
+      {/* Client Link */}
+      <div className="mb-3">
+        <label className="kh-form-label"><i className="bi bi-building me-1" />Client</label>
+        <select className="form-select kh-input" value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}>
+          <option value="">— No Client —</option>
+          {(clients || []).map(c => (
+            <option key={c.client_id} value={c.client_id}>
+              {c.client_name}{c.company_name ? ` (${c.company_name})` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Inventory Reference */}
+      <div className="mb-3">
+        <label className="kh-form-label"><i className="bi bi-layers me-1" />Related Inventory</label>
+        {form.related_inventory_id ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: 12.5 }}>
+            <i className="bi bi-check-circle-fill text-success" />
+            <span style={{ flex: 1, fontWeight: 600, color: '#065F46' }}>{invSearch || `${form.related_batch_id || form.related_inventory_id}`}</span>
+            <button type="button" onClick={clearInventory} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 14, lineHeight: 1 }}>×</button>
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }} ref={invRef}>
+            <div style={{ position: 'relative' }}>
+              <input
+                className="form-control kh-input"
+                placeholder="Click or type to search inventory…"
+                value={invSearch}
+                onFocus={handleInvFocus}
+                onChange={handleInvChange}
+                onBlur={() => setTimeout(() => setInvOpen(false), 180)}
+                style={{ paddingRight: 32 }}
+              />
+              <i className="bi bi-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#9CA3AF', pointerEvents: 'none' }} />
+              {invLoading && (
+                <div style={{ position: 'absolute', right: 30, top: '50%', transform: 'translateY(-50%)' }}>
+                  <div className="spinner-border spinner-border-sm text-secondary" style={{ width: 14, height: 14 }} />
+                </div>
+              )}
+            </div>
+            {invOpen && invResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1050, background: '#fff', border: '1px solid #D1D5DB', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.13)', maxHeight: 240, overflowY: 'auto' }}>
+                {invResults.map(item => {
+                  const grade = item.product_grade || item.quality_grade
+                  return (
+                    <div
+                      key={item.inventory_id}
+                      onMouseDown={() => selectInventory(item)}
+                      style={{ padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid #F3F4F6' }}
+                      onMouseOver={e => e.currentTarget.style.background = '#F0FDF4'}
+                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#065F46', fontFamily: 'monospace' }}>{item.batch_id}</span>
+                        {grade && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#DBEAFE', color: '#1D4ED8' }}>{grade}</span>
+                        )}
+                        <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#1A5C28' }}>{item.available_qty?.toLocaleString()} avail</span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#374151', fontWeight: 500 }}>{item.product_name}</div>
+                      <div style={{ fontSize: 10.5, color: '#9CA3AF', marginTop: 1 }}>{item.commodity_id} &nbsp;·&nbsp; {item.inventory_id}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {invOpen && invResults.length === 0 && !invLoading && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1050, background: '#fff', border: '1px solid #D1D5DB', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.13)', padding: '14px 12px', textAlign: 'center', fontSize: 12, color: '#9CA3AF' }}>
+                No inventory records found
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Attachment staging — only shown for new tasks */}
       {!isEdit && setPendingAttachments && (
         <div className="mb-3">
@@ -330,6 +468,7 @@ export default function CommandCenter() {
   const [priorities, setPriorities] = useState([])
   const [users, setUsers] = useState([])
   const [allLabels, setAllLabels] = useState([])
+  const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [view, setView] = useState('board')
@@ -337,6 +476,7 @@ export default function CommandCenter() {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
   const [filterPri, setFilterPri] = useState('')
+  const [filterClient, setFilterClient] = useState('')
 
   const [selectedTask, setSelectedTask] = useState(null)
   const [detailTab, setDetailTab] = useState('description')
@@ -376,18 +516,20 @@ export default function CommandCenter() {
   // ── Data Loading ─────────────────────────────────────────────────────────────
 
   async function loadMeta() {
-    const [cats, pris, sts, usrs, lbls] = await Promise.all([
+    const [cats, pris, sts, usrs, lbls, clts] = await Promise.all([
       api.get('/command-center/categories').then(r => r.data),
       api.get('/command-center/priorities').then(r => r.data),
       api.get('/command-center/statuses').then(r => r.data),
       api.get('/command-center/users').then(r => r.data),
       api.get('/command-center/labels').then(r => r.data),
+      api.get('/clients/all').then(r => r.data).catch(() => []),
     ])
     setCategories(cats)
     setPriorities(pris)
     setStatuses(sts)
     setUsers(usrs)
     setAllLabels(lbls)
+    setClients(clts)
     return sts
   }
 
@@ -396,6 +538,7 @@ export default function CommandCenter() {
     if (search) params.set('search', search)
     if (filterCat) params.set('category_id', filterCat)
     if (filterPri) params.set('priority_id', filterPri)
+    if (filterClient) params.set('client_id', filterClient)
     if (navSection.startsWith('cat-')) params.set('category_id', navSection.replace('cat-', ''))
     const { data } = await api.get(`/command-center/tasks?${params}`)
     return data.items
@@ -419,7 +562,7 @@ export default function CommandCenter() {
 
   useEffect(() => {
     if (!loading) loadTasks().then(setTasks).catch(() => {})
-  }, [search, filterCat, filterPri, navSection])
+  }, [search, filterCat, filterPri, filterClient, navSection])
 
   useEffect(() => {
     function poll() {
@@ -524,6 +667,10 @@ export default function CommandCenter() {
       start_date: task.start_date || '',
       due_date: task.due_date || '',
       assignee_ids: (task.assignees || []).map(a => a.user_id),
+      client_id: task.client_id || '',
+      related_inventory_id: task.related_inventory_id || '',
+      related_batch_id: task.related_batch_id || '',
+      related_receiving_id: task.related_receiving_id || '',
     })
     setEditMode(true)
   }
@@ -539,6 +686,10 @@ export default function CommandCenter() {
       start_date: form.start_date || null,
       due_date: form.due_date || null,
       assignee_ids: form.assignee_ids || [],
+      client_id: form.client_id || null,
+      related_inventory_id: form.related_inventory_id || null,
+      related_batch_id: form.related_batch_id || null,
+      related_receiving_id: form.related_receiving_id || null,
     }
   }
 
@@ -830,6 +981,15 @@ export default function CommandCenter() {
           </div>
         )}
 
+        {/* Client badge */}
+        {task.client_name && (
+          <div style={{ marginBottom: 5 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+              <i className="bi bi-building me-1" style={{ fontSize: 9 }} />{task.client_name}
+            </span>
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderTop: '1px solid #F3F4F6', paddingTop: 7 }}>
           {/* Stacked assignee avatars */}
@@ -955,7 +1115,7 @@ export default function CommandCenter() {
             <TaskForm
               form={form} setForm={setForm}
               categories={categories} priorities={priorities}
-              statuses={statuses} users={users}
+              statuses={statuses} users={users} clients={clients}
               submitting={submitting}
               onSubmit={handleUpdate} onCancel={() => setEditMode(false)} isEdit={true}
             />
@@ -1012,6 +1172,26 @@ export default function CommandCenter() {
                       {t.related_module.replace('_', ' ')}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{t.related_record_number || t.related_record_id}</span>
+                  </div>
+                </div>
+              )}
+              {t.client_name && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="cc-meta-label">Client</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }}>
+                      <i className="bi bi-building me-1" />{t.client_name}
+                    </span>
+                    {t.client_company && <span style={{ fontSize: 12, color: '#6B7280' }}>{t.client_company}</span>}
+                  </div>
+                </div>
+              )}
+              {t.inventory_info && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="cc-meta-label">Related Inventory</div>
+                  <div style={{ marginTop: 2, padding: '6px 10px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, fontSize: 12 }}>
+                    <span style={{ fontWeight: 600, color: '#065F46' }}>{t.inventory_info.product_name}</span>
+                    <span style={{ color: '#6B7280', marginLeft: 6 }}>Batch: {t.inventory_info.batch_id} · Qty: {t.inventory_info.available_qty}</span>
                   </div>
                 </div>
               )}
@@ -1592,8 +1772,13 @@ export default function CommandCenter() {
               {priorities.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
 
-            {(search || filterPri) && (
-              <button className="btn btn-sm btn-outline-secondary" style={{ padding: '4px 8px' }} onClick={() => { setSearch(''); setFilterPri('') }}>
+            <select className="form-select form-select-sm" style={{ width: 130 }} value={filterClient} onChange={e => setFilterClient(e.target.value)}>
+              <option value="">Client</option>
+              {clients.map(c => <option key={c.client_id} value={c.client_id}>{c.client_name}</option>)}
+            </select>
+
+            {(search || filterPri || filterClient) && (
+              <button className="btn btn-sm btn-outline-secondary" style={{ padding: '4px 8px' }} onClick={() => { setSearch(''); setFilterPri(''); setFilterClient('') }}>
                 <i className="bi bi-x" />
               </button>
             )}
@@ -1682,11 +1867,11 @@ export default function CommandCenter() {
 
           {/* Board View */}
           {view === 'board' && (
-            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px 16px' }}>
+            <div className="cc-board-cols">
               {nonTerminalStatuses.map(st => {
                 const colTasks = tasksByStatus(st.id)
                 return (
-                  <div key={st.id} style={{ minWidth: 230, width: 230, flexShrink: 0 }}>
+                  <div key={st.id} className="cc-board-col-item">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 2px' }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
                       <strong style={{ fontSize: 12, color: '#374151' }}>{st.name}</strong>
@@ -1709,7 +1894,7 @@ export default function CommandCenter() {
               })}
               {/* Completed column */}
               {(navSection === 'all' || navSection === 'completed') && (
-                <div style={{ minWidth: 230, width: 230, flexShrink: 0, opacity: 0.65 }}>
+                <div className="cc-board-col-item" style={{ opacity: 0.65 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 2px' }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#059669', flexShrink: 0 }} />
                     <strong style={{ fontSize: 12, color: '#374151' }}>Completed</strong>
@@ -1831,7 +2016,7 @@ export default function CommandCenter() {
               <TaskForm
                 form={form} setForm={setForm}
                 categories={categories} priorities={priorities}
-                statuses={statuses} users={users}
+                statuses={statuses} users={users} clients={clients}
                 submitting={submitting}
                 onSubmit={handleCreate} onCancel={() => setShowCreate(false)} isEdit={false}
                 pendingAttachments={pendingAttachments} setPendingAttachments={setPendingAttachments}

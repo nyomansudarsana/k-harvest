@@ -19,7 +19,7 @@ from app.models import (
     CCCategory, CCPriority, CCStatus, CCLabel,
     CCTask, CCTaskAssignee, CCTaskLabel, CCChecklist, CCAttachment,
     CCTaskLocation, CCReminder, CCComment, CCActivity, CCNotification,
-    Role, MenuPermission, WorkflowRule,
+    Role, MenuPermission, WorkflowRule, ClientMaster,
 )
 
 from app.routers import (
@@ -31,6 +31,7 @@ from app.routers import exchange_rates
 from app.routers import command_center
 from app.routers import rbac as rbac_router
 from app.routers import workflow as workflow_router
+from app.routers import clients as clients_router
 
 os.makedirs("uploads/cc_attachments", exist_ok=True)
 run_migrations(engine)
@@ -75,6 +76,7 @@ app.include_router(exchange_rates.router, prefix=PREFIX)
 app.include_router(command_center.router, prefix=PREFIX)
 app.include_router(rbac_router.router, prefix=PREFIX)
 app.include_router(workflow_router.router, prefix=PREFIX)
+app.include_router(clients_router.router, prefix=PREFIX)
 
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

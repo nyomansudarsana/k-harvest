@@ -2,14 +2,17 @@
 Invoice PDF generator — updated with Kopernik Harvest green branding,
 tax support, and currency display. Backward-compatible with existing invoices.
 """
+import os
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image as RLImage
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from datetime import datetime
+
+_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static', 'logo.png')
 
 BRAND_GREEN = colors.HexColor("#1A5C28")
 BRAND_LIGHT = colors.HexColor("#E8F5E9")
@@ -53,8 +56,13 @@ def generate_invoice_pdf(invoice_data: dict, settings_data: dict) -> bytes:
         fontSize=28, fontName="Helvetica-Bold",
         textColor=BRAND_GREEN, alignment=TA_RIGHT, leading=32,
     )
+    try:
+        _logo_cell = RLImage(_LOGO_PATH, height=24 * mm)
+        _logo_cell.hAlign = 'LEFT'
+    except Exception:
+        _logo_cell = Paragraph(company_name, logo_style)
     header_tbl = Table(
-        [[Paragraph(company_name, logo_style), Paragraph("INVOICE", inv_label_style)]],
+        [[_logo_cell, Paragraph("INVOICE", inv_label_style)]],
         colWidths=[95 * mm, 79 * mm],
     )
     header_tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))

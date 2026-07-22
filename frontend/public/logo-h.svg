@@ -1,12 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 56" width="340" height="56">
-  <!-- Left leaf -->
-  <path d="M22,47 C21,39 14,31 13,20 C12,11 17,5 22,5 Z" fill="#1A5C28"/>
-  <!-- Right leaf -->
-  <path d="M22,47 C23,39 30,31 31,20 C32,11 27,5 22,5 Z" fill="#1A5C28"/>
-  <!-- Center stem hint -->
-  <ellipse cx="22" cy="47" rx="2" ry="3" fill="#1A5C28"/>
-  <!-- Kopernik Harvest text -->
-  <text x="52" y="38"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 56" width="310" height="56">
+  <title>Kopernik Harvest</title>
+  <!-- Leaf icon (scaled from 200x230 stacked, leaf bounding box x:[60,140] y:[18,114] → 40x40 at (2,8)) -->
+  <g transform="translate(-22.5, -1.5) scale(0.5)">
+    <!-- Left leaf -->
+    <path d="M100,112 C93,100 72,90 65,74 C58,58 63,36 74,26 C80,20 91,18 100,20 Z" fill="#1A5C28"/>
+    <!-- Right leaf -->
+    <path d="M100,112 C107,100 128,90 135,74 C142,58 137,36 126,26 C120,20 109,18 100,20 Z" fill="#1A5C28"/>
+    <!-- Left inner vein -->
+    <path d="M100,104 C95,94 78,86 73,72 C68,58 71,40 80,32 C85,27 93,25 100,28 Z" fill="#2E8B4F"/>
+    <!-- Right inner vein -->
+    <path d="M100,104 C105,94 122,86 127,72 C132,58 129,40 120,32 C115,27 107,25 100,28 Z" fill="#2E8B4F"/>
+  </g>
+  <!-- Text -->
+  <text x="56" y="36"
         font-family="'Arial Black','Helvetica Neue',Arial,sans-serif"
-        font-size="26" font-weight="900" fill="#1A5C28" letter-spacing="0.4">Kopernik Harvest</text>
+        font-size="24" font-weight="900" fill="#1A5C28" letter-spacing="0.3">Kopernik Harvest</text>
 </svg>

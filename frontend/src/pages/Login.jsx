@@ -28,7 +28,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="text-center mb-4">
-          <img src="/logo.svg" alt="Kopernik Harvest" style={{ width: 100, height: 'auto', marginBottom: 12 }} />
+          <img src="/logo.png" alt="Kopernik Harvest" style={{ width: 130, height: 'auto', marginBottom: 12, objectFit: 'contain' }} />
           <p className="text-muted" style={{ fontSize: '0.85rem' }}>Harvest Management System</p>
         </div>
 

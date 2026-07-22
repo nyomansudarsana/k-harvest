@@ -25,11 +25,12 @@ const NAV_CONFIG = [
     id: 'master',
     icon: 'bi-folder2-open',
     label: 'Master Data',
-    groupMenuCodes: ['products', 'suppliers', 'users'],
+    groupMenuCodes: ['products', 'suppliers', 'clients', 'users'],
     children: [
-      { path: '/products',  icon: 'bi-box-seam',  label: 'Product Master',   menuCode: 'products'  },
-      { path: '/suppliers', icon: 'bi-truck',     label: 'Supplier Master',  menuCode: 'suppliers' },
-      { path: '/users',     icon: 'bi-people',    label: 'User Management',  menuCode: 'users'     },
+      { path: '/products',  icon: 'bi-box-seam',       label: 'Product Master',   menuCode: 'products'  },
+      { path: '/suppliers', icon: 'bi-truck',           label: 'Supplier Master',  menuCode: 'suppliers' },
+      { path: '/clients',   icon: 'bi-building',        label: 'Client Master',    menuCode: 'clients'   },
+      { path: '/users',     icon: 'bi-people',          label: 'User Management',  menuCode: 'users'     },
     ],
   },
   {
@@ -71,13 +72,14 @@ const NAV_CONFIG = [
 ]
 
 const STORAGE_KEY = 'kh-sidebar-groups'
+const COLLAPSED_DEFAULT = { master: false, inventory: false, sales: false, settings: false }
 
 function loadOpenGroups() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : { master: false, inventory: false, sales: false, settings: false }
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : COLLAPSED_DEFAULT
   } catch {
-    return { master: false, inventory: false, sales: false, settings: false }
+    return COLLAPSED_DEFAULT
   }
 }
 
@@ -95,7 +97,7 @@ export default function Sidebar({ collapsed }) {
       setOpenGroups(prev => {
         if (prev[activeGroup.id]) return prev
         const next = { ...prev, [activeGroup.id]: true }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))
         return next
       })
     }
@@ -104,7 +106,7 @@ export default function Sidebar({ collapsed }) {
   function toggleGroup(id) {
     setOpenGroups(prev => {
       const next = { ...prev, [id]: !prev[id] }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
   }
@@ -113,9 +115,13 @@ export default function Sidebar({ collapsed }) {
     <aside className={`kh-sidebar${collapsed ? ' collapsed' : ''}`}>
       <div className="kh-sidebar-logo">
         {collapsed ? (
-          <img src="/logo.svg" alt="KH" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
+          <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="KH" style={{ width: 40, height: 40, objectFit: 'contain', display: 'block' }} />
+          </div>
         ) : (
-          <img src="/logo-h.svg" alt="Kopernik Harvest" style={{ width: 160, height: 'auto', filter: 'brightness(0) invert(1)' }} />
+          <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 10, padding: '8px 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="Kopernik Harvest" style={{ width: 120, height: 'auto', objectFit: 'contain', display: 'block' }} />
+          </div>
         )}
       </div>
 

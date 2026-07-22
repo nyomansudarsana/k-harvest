@@ -60,6 +60,15 @@ class CCTask(Base):
     related_module = Column(String(50), nullable=True)       # quotation, invoice, receiving, stock_opname
     related_record_id = Column(String(50), nullable=True)
     related_record_number = Column(String(50), nullable=True)
+    # Client linkage (REQ 2)
+    client_id = Column(String(20), nullable=True, index=True)  # client_master.client_id
+    # Inventory reference (REQ 3)
+    related_inventory_id = Column(String(20), nullable=True)   # inventory.inventory_id
+    related_batch_id = Column(String(50), nullable=True)       # inventory.batch_id
+    related_receiving_id = Column(String(20), nullable=True)   # receiving.receiving_id
+    # Audit
+    updated_by = Column(Integer, nullable=True)
+    deleted_by = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)

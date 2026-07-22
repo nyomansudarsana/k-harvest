@@ -9,11 +9,14 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+import os
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph,
-    Spacer, HRFlowable, KeepTogether,
+    Spacer, HRFlowable, KeepTogether, Image as RLImage,
 )
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+
+_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static', 'logo.png')
 
 BRAND_GREEN = colors.HexColor("#1A5C28")
 BRAND_LIGHT = colors.HexColor("#E8F5E9")
@@ -51,15 +54,19 @@ def generate_quotation_pdf(quotation_data: dict, settings_data: dict) -> bytes:
     elems = []
 
     # ── HEADER ────────────────────────────────────────────────────────────────
-    # Logo area (text-based, green)
     logo_style = ParagraphStyle(
         "Logo", parent=styles["Normal"],
         fontSize=20, fontName="Helvetica-Bold",
         textColor=BRAND_GREEN, leading=24,
     )
+    try:
+        _logo_cell = RLImage(_LOGO_PATH, height=24 * mm)
+        _logo_cell.hAlign = 'LEFT'
+    except Exception:
+        _logo_cell = Paragraph(company_name, logo_style)
     header_data = [
         [
-            Paragraph(company_name, logo_style),
+            _logo_cell,
             Paragraph("QUOTATION", ParagraphStyle(
                 "QT", parent=styles["Normal"],
                 fontSize=28, fontName="Helvetica-Bold",

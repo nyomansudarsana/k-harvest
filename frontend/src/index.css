@@ -617,12 +617,42 @@ body {
   flex-wrap: wrap;
 }
 
+/* ── Board columns container ── */
+.cc-board-cols {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px 16px;
+  overflow: hidden;    /* desktop: no horizontal scroll */
+  min-width: 0;
+}
+
+/* ── Board column item ── */
+.cc-board-col-item {
+  flex: 1 1 0%;
+  min-width: 0;        /* let columns shrink freely on desktop */
+  max-width: 260px;
+}
+
+/* Mobile: allow horizontal scroll with fixed-width columns */
+@media (max-width: 767px) {
+  .cc-board-cols {
+    overflow-x: auto;
+  }
+  .cc-board-col-item {
+    flex: 0 0 170px;
+    min-width: 170px;
+    max-width: 170px;
+  }
+}
+
 /* ── Task Card (Board) ── */
 .cc-task-card2 {
   background: #fff;
   border-radius: 8px;
   border: 1px solid #E4E7EC;
-  padding: 10px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: box-shadow .15s, border-color .15s;
 }

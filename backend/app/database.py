@@ -134,6 +134,13 @@ def run_migrations(eng=None):
         "ALTER TABLE cc_tasks ADD COLUMN related_module VARCHAR(50)",
         "ALTER TABLE cc_tasks ADD COLUMN related_record_id VARCHAR(50)",
         "ALTER TABLE cc_tasks ADD COLUMN related_record_number VARCHAR(50)",
+        # Command Center v2.2: client linkage + inventory reference (REQ 2 & 3)
+        "ALTER TABLE cc_tasks ADD COLUMN client_id VARCHAR(20)",
+        "ALTER TABLE cc_tasks ADD COLUMN related_inventory_id VARCHAR(20)",
+        "ALTER TABLE cc_tasks ADD COLUMN related_batch_id VARCHAR(50)",
+        "ALTER TABLE cc_tasks ADD COLUMN related_receiving_id VARCHAR(20)",
+        "ALTER TABLE cc_tasks ADD COLUMN updated_by INTEGER",
+        "ALTER TABLE cc_tasks ADD COLUMN deleted_by INTEGER",
     ]
 
     # Indexes run separately — CREATE INDEX IF NOT EXISTS is always safe
@@ -149,6 +156,7 @@ def run_migrations(eng=None):
         "CREATE INDEX IF NOT EXISTS ix_cc_notifications_is_read ON cc_notifications (is_read)",
         "CREATE INDEX IF NOT EXISTS ix_cc_task_assignees_task_id ON cc_task_assignees (task_id)",
         "CREATE INDEX IF NOT EXISTS ix_cc_task_assignees_user_id ON cc_task_assignees (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_cc_tasks_client_id ON cc_tasks (client_id)",
     ]
 
     with target.connect() as conn:
@@ -341,7 +349,7 @@ def seed_rbac_defaults(eng=None):
 
     MENU_CODES = [
         "dashboard", "command_center",
-        "products", "suppliers", "users",
+        "products", "suppliers", "clients", "users",
         "receiving", "qc", "qc_failed", "inventory", "stock_opname",
         "quotation", "invoice", "settings",
     ]
@@ -363,6 +371,7 @@ def seed_rbac_defaults(eng=None):
             "command_center": (1, 1, 1, 0, 1, 0),
             "products":       (1, 1, 1, 0, 0, 1),
             "suppliers":      (1, 1, 1, 0, 0, 1),
+            "clients":        (1, 1, 1, 0, 0, 1),
             "users":          (0, 0, 0, 0, 0, 0),
             "receiving":      (1, 1, 1, 0, 1, 1),
             "qc":             (1, 1, 1, 0, 1, 1),
@@ -378,6 +387,7 @@ def seed_rbac_defaults(eng=None):
             "command_center": (1, 1, 1, 0, 1, 0),
             "products":       (1, 0, 0, 0, 0, 1),
             "suppliers":      (1, 0, 0, 0, 0, 1),
+            "clients":        (1, 0, 0, 0, 0, 1),
             "users":          (1, 0, 0, 0, 0, 0),
             "receiving":      (1, 0, 0, 0, 1, 1),
             "qc":             (1, 0, 0, 0, 1, 1),
@@ -393,6 +403,7 @@ def seed_rbac_defaults(eng=None):
             "command_center": (1, 1, 1, 0, 0, 0),
             "products":       (1, 0, 0, 0, 0, 0),
             "suppliers":      (1, 0, 0, 0, 0, 0),
+            "clients":        (1, 0, 0, 0, 0, 0),
             "users":          (0, 0, 0, 0, 0, 0),
             "receiving":      (1, 1, 1, 0, 0, 0),
             "qc":             (1, 1, 1, 0, 0, 0),
