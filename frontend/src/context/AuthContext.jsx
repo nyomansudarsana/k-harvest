@@ -35,6 +35,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('kh_token')
     localStorage.removeItem('kh_user')
+    sessionStorage.removeItem('kh-sidebar-groups')
     delete api.defaults.headers.common['Authorization']
     setUser(null)
   }

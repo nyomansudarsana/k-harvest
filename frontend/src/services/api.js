@@ -19,6 +19,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('kh_token')
       localStorage.removeItem('kh_user')
+      sessionStorage.removeItem('kh-sidebar-groups')
       window.location.href = '/login'
     } else if (err.response?.status !== 404) {
       toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg))
